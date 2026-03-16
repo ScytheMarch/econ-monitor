@@ -148,7 +148,7 @@ def _evidence_box(title: str, body: str) -> None:
     """Render a styled analysis/evidence box."""
     st.markdown(
         f'<div style="background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.15);'
-        f'border-radius:10px;padding:14px 18px;margin:8px 0">'
+        f'border-radius:12px;padding:14px 18px;margin:8px 0">'
         f'<span style="color:#c7d2fe;font-weight:600">{title}:</span> '
         f'<span style="color:#94a3b8">{body}</span></div>',
         unsafe_allow_html=True,

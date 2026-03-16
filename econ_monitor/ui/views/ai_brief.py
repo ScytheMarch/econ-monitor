@@ -58,7 +58,7 @@ def render() -> None:
         st.markdown(
             f'<div style="background:linear-gradient(135deg,rgba(99,102,241,0.06),'
             f'rgba(139,92,246,0.03));border:1px solid rgba(99,102,241,0.12);'
-            f'border-radius:14px;padding:24px 28px;margin:8px 0 16px 0">'
+            f'border-radius:12px;padding:24px 28px;margin:8px 0 16px 0">'
             f'<div style="color:#94a3b8;font-size:0.75em;font-weight:700;'
             f'text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px">'
             f'📊 Market Analysis</div>'
@@ -77,7 +77,7 @@ def render() -> None:
         with col_risk:
             st.markdown(
                 f'<div style="background:rgba(239,68,68,0.04);'
-                f'border:1px solid rgba(239,68,68,0.15);border-radius:14px;'
+                f'border:1px solid rgba(239,68,68,0.15);border-radius:12px;'
                 f'padding:20px 24px;min-height:160px">'
                 f'<div style="color:#fca5a5;font-weight:700;font-size:0.8em;'
                 f'text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px">'
@@ -91,7 +91,7 @@ def render() -> None:
         with col_opp:
             st.markdown(
                 f'<div style="background:rgba(34,197,94,0.04);'
-                f'border:1px solid rgba(34,197,94,0.15);border-radius:14px;'
+                f'border:1px solid rgba(34,197,94,0.15);border-radius:12px;'
                 f'padding:20px 24px;min-height:160px">'
                 f'<div style="color:#86efac;font-weight:700;font-size:0.8em;'
                 f'text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px">'
@@ -107,7 +107,7 @@ def render() -> None:
     if watchlist:
         st.markdown(
             f'<div style="background:rgba(251,191,36,0.04);'
-            f'border:1px solid rgba(251,191,36,0.15);border-radius:14px;'
+            f'border:1px solid rgba(251,191,36,0.15);border-radius:12px;'
             f'padding:20px 24px;margin:16px 0">'
             f'<div style="color:#fcd34d;font-weight:700;font-size:0.8em;'
             f'text-transform:uppercase;letter-spacing:1.5px;margin-bottom:12px">'
@@ -170,7 +170,7 @@ def _render_setup_instructions() -> None:
     st.markdown(
         '<div style="background:linear-gradient(135deg,rgba(99,102,241,0.06),'
         'rgba(139,92,246,0.03));border:1px solid rgba(99,102,241,0.2);'
-        'border-radius:14px;padding:28px 32px;margin:20px 0;text-align:center">'
+        'border-radius:12px;padding:28px 32px;margin:20px 0;text-align:center">'
         '<div style="font-size:2.5em;margin-bottom:12px">🤖</div>'
         '<div style="color:#c7d2fe;font-size:1.2em;font-weight:700;margin-bottom:8px">'
         'AI Analysis Not Configured</div>'

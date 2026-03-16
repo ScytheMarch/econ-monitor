@@ -231,7 +231,7 @@ def _render_entry(entry: dict) -> None:
 
     st.markdown(
         f'<div style="display:flex;align-items:center;gap:12px;'
-        f'padding:10px 16px;margin:4px 0;border-radius:10px;'
+        f'padding:10px 16px;margin:4px 0;border-radius:12px;'
         f'background:rgba(255,255,255,0.02);'
         f'border:1px solid rgba(255,255,255,0.04);'
         f'transition:all 0.2s ease">'

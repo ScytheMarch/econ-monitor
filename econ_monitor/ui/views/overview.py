@@ -125,7 +125,7 @@ def _render_regime_context(regime: dict) -> None:
 
     html = (
         f'<div style="background:rgba(255,255,255,0.04);border:1px solid {color};'
-        f'border-radius:10px;padding:14px 18px">'
+        f'border-radius:12px;padding:14px 18px">'
         f'<div style="font-weight:700;font-size:1.1em;color:{color}">{headline}</div>'
         f'<div style="color:#9ca3af;font-size:0.85em;margin-top:4px">{desc}</div>'
         f'<div style="margin-top:8px;font-size:0.85em">{count_html}</div>'

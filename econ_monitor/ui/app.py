@@ -137,22 +137,25 @@ header[data-testid="stHeader"] {
 
 /* ── Top nav bar compact button sizing ──────────────────────────────── */
 .top-nav-bar .stButton > button {
-    padding: 3px 1px !important;
-    font-size: 0.68em !important;
+    padding: 6px 8px !important;
+    font-size: 0.76em !important;
     white-space: nowrap !important;
-    min-height: 34px !important;
-    max-height: 34px !important;
+    min-height: 38px !important;
+    max-height: 38px !important;
     width: 100% !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
-    gap: 2px !important;
+    gap: 4px !important;
+    border-radius: 10px !important;
+    letter-spacing: 0.2px;
 }
 .top-nav-bar .stButton > button span[data-testid="stIconEmoji"] {
-    font-size: 0.9em !important;
-    margin-right: 1px !important;
+    font-size: 1em !important;
+    margin-right: 2px !important;
+    line-height: 1 !important;
 }
 
 /* ── Headers ────────────────────────────────────────────────────────── */
@@ -172,8 +175,8 @@ header[data-testid="stHeader"] {
         rgba(255,255,255,0.05) 0%,
         rgba(255,255,255,0.02) 100%) !important;
     border: 1px solid rgba(255,255,255,0.08) !important;
-    border-radius: 14px !important;
-    padding: 18px 22px !important;
+    border-radius: 12px !important;
+    padding: 14px 18px !important;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
     backdrop-filter: blur(12px) !important;
     -webkit-backdrop-filter: blur(12px) !important;
@@ -341,7 +344,7 @@ header[data-testid="stHeader"] {
 
 details {
     border: 1px solid rgba(255,255,255,0.06) !important;
-    border-radius: 14px !important;
+    border-radius: 12px !important;
     background: rgba(255,255,255,0.015) !important;
     transition: all 0.25s ease !important;
     backdrop-filter: blur(8px) !important;
@@ -359,7 +362,7 @@ details[open] {
 
 /* ── Plotly charts — glass container ───────────────────────────────── */
 .js-plotly-plot .plotly .main-svg {
-    border-radius: 14px;
+    border-radius: 12px;
 }
 
 [data-testid="stPlotlyChart"] {
@@ -367,7 +370,7 @@ details[open] {
         rgba(255,255,255,0.02) 0%,
         rgba(255,255,255,0.008) 100%) !important;
     border: 1px solid rgba(255,255,255,0.06) !important;
-    border-radius: 14px !important;
+    border-radius: 12px !important;
     padding: 8px !important;
     backdrop-filter: blur(8px) !important;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15) !important;
@@ -395,7 +398,7 @@ hr {
 /* ── Dataframes ─────────────────────────────────────────────────────── */
 .stDataFrame {
     border: 1px solid rgba(255,255,255,0.08) !important;
-    border-radius: 14px !important;
+    border-radius: 12px !important;
     overflow: hidden;
     backdrop-filter: blur(8px) !important;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15) !important;
@@ -464,10 +467,7 @@ a, button, input, select, details, [role="tab"] {
     overflow-anchor: none;
 }
 
-/* ── Compact metric card padding ───────────────────────────────────── */
-[data-testid="stMetric"] {
-    padding: 12px 16px !important;
-}
+/* ── Compact metric card padding (unified with main rule above) ───── */
 
 /* ── Compact radio buttons (for time range selector) ───────────────── */
 .stRadio > div {
@@ -601,7 +601,7 @@ def _on_quick_jump():
 
 # Top bar layout: title | nav buttons | quick-jump | actions
 st.markdown('<div class="top-nav-bar">', unsafe_allow_html=True)
-_nav_col_title, _nav_col_links, _nav_col_jump, _nav_col_actions = st.columns([0.6, 7.5, 1.5, 0.5])
+_nav_col_title, _nav_col_links, _nav_col_jump, _nav_col_actions = st.columns([0.4, 8.2, 1.2, 0.4])
 
 with _nav_col_title:
     st.markdown(
@@ -613,7 +613,7 @@ with _nav_col_title:
     )
 
 with _nav_col_links:
-    _page_labels = ["Home", "Detail", "Feed", "Cal", "Guide", "Models", "AI", "Markets", "History"]
+    _page_labels = ["Home", "Detail", "Feed", "Cal", "Guide", "Models", "AI", "Mkts", "Hist"]
     _page_icons = ["📊", "🔍", "📡", "📅", "📖", "🎯", "🤖", "📈", "📜"]
     _page_refs = [_page_overview, _page_detail, _page_feed, _page_calendar, _page_guide, _page_models, _page_ai_brief, _page_markets, _page_timeline]
 
