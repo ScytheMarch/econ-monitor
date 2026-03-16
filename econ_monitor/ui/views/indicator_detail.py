@@ -196,6 +196,126 @@ def render() -> None:
             unsafe_allow_html=True,
         )
 
+        # ── Plain-English interpretation card ──────────────────────────
+        _z = sig["z_score"]
+        _abs_z = abs(_z)
+        _change = sig.get("change", 0) or 0
+        _streak = sig.get("streak", 0)
+        _hi = ind.higher_is
+
+        # Determine signal: is this good, bad, or neutral for the economy?
+        # "good" = favorable conditions, "bad" = stress/concern, "watch" = notable
+        if _hi == "inflationary":
+            if _change > 0 and _abs_z >= 1.0:
+                _signal = "warning"
+                _signal_icon = "🔴"
+                _signal_label = "Warning"
+                _signal_summary = "Rising inflation pressure — erodes purchasing power and may prompt Fed tightening"
+            elif _change < 0 and _abs_z >= 0.5:
+                _signal = "favorable"
+                _signal_icon = "🟢"
+                _signal_label = "Favorable"
+                _signal_summary = "Inflation cooling — eases pressure on consumers and supports potential rate cuts"
+            elif _abs_z >= 2.0:
+                _signal = "warning"
+                _signal_icon = "🔴"
+                _signal_label = "Warning"
+                _signal_summary = "Inflation at extreme levels relative to recent history"
+            elif _abs_z >= 1.0:
+                _signal = "watch"
+                _signal_icon = "🟡"
+                _signal_label = "Watch"
+                _signal_summary = "Inflation elevated but not yet at extreme levels"
+            else:
+                _signal = "neutral"
+                _signal_icon = "⚪"
+                _signal_label = "Neutral"
+                _signal_summary = "Inflation within normal range — no immediate concern"
+
+        elif _hi == "expansionary":
+            if _change > 0 and _abs_z >= 0.5:
+                _signal = "favorable"
+                _signal_icon = "🟢"
+                _signal_label = "Favorable"
+                _signal_summary = "Economic activity strengthening — positive for growth and employment"
+            elif _change < 0 and _abs_z >= 1.0:
+                _signal = "warning"
+                _signal_icon = "🔴"
+                _signal_label = "Warning"
+                _signal_summary = "Economic activity weakening significantly — watch for slowdown signals"
+            elif _change < 0:
+                _signal = "watch"
+                _signal_icon = "🟡"
+                _signal_label = "Watch"
+                _signal_summary = "Growth slowing — not yet alarming but worth monitoring"
+            else:
+                _signal = "neutral"
+                _signal_icon = "⚪"
+                _signal_label = "Neutral"
+                _signal_summary = "Economic activity within normal range"
+
+        elif _hi == "contractionary":
+            if _change > 0 and _abs_z >= 0.5:
+                _signal = "warning"
+                _signal_icon = "🔴"
+                _signal_label = "Warning"
+                _signal_summary = "Stress indicator rising — signals increasing economic headwinds"
+            elif _change < 0 and _abs_z >= 0.5:
+                _signal = "favorable"
+                _signal_icon = "🟢"
+                _signal_label = "Favorable"
+                _signal_summary = "Stress easing — conditions improving"
+            elif _abs_z >= 2.0:
+                _signal = "warning"
+                _signal_icon = "🔴"
+                _signal_label = "Warning"
+                _signal_summary = "At extreme levels — historically associated with economic stress"
+            else:
+                _signal = "neutral"
+                _signal_icon = "⚪"
+                _signal_label = "Neutral"
+                _signal_summary = "Within normal range"
+
+        else:  # neutral
+            if _abs_z >= 2.0:
+                _signal = "watch"
+                _signal_icon = "🟡"
+                _signal_label = "Watch"
+                _signal_summary = "Unusually far from historical norms — worth paying attention to"
+            else:
+                _signal = "neutral"
+                _signal_icon = "⚪"
+                _signal_label = "Neutral"
+                _signal_summary = "Within normal range — no strong directional signal"
+
+        # Add streak context
+        if abs(_streak) >= 4:
+            _streak_dir = "rising" if _streak > 0 else "falling"
+            _signal_summary += f". Now {_streak_dir} for {abs(_streak)} straight readings"
+
+        # Signal card colors
+        _signal_colors = {
+            "favorable": ("#22c55e", "rgba(34,197,94,0.08)", "rgba(34,197,94,0.2)"),
+            "watch": ("#eab308", "rgba(234,179,8,0.08)", "rgba(234,179,8,0.2)"),
+            "warning": ("#ef4444", "rgba(239,68,68,0.08)", "rgba(239,68,68,0.2)"),
+            "neutral": ("#64748b", "rgba(100,116,139,0.06)", "rgba(100,116,139,0.15)"),
+        }
+        _sc_text, _sc_bg, _sc_border = _signal_colors[_signal]
+
+        st.markdown(
+            f'<div style="background:{_sc_bg};border:1px solid {_sc_border};'
+            f'border-radius:12px;padding:14px 18px;margin:8px 0 16px 0">'
+            f'<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">'
+            f'<span style="font-size:1.1em">{_signal_icon}</span>'
+            f'<span style="color:{_sc_text};font-weight:700;font-size:0.82em;'
+            f'text-transform:uppercase;letter-spacing:0.8px">{_signal_label}</span>'
+            f'</div>'
+            f'<div style="color:#e2e8f0;font-size:0.9em;line-height:1.5">'
+            f'{_signal_summary}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
         # Trailing averages
         avg_cols = st.columns(3)
         for i, (label, val) in enumerate([
