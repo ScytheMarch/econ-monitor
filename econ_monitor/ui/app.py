@@ -658,5 +658,83 @@ if st.session_state.pop("_do_jump", False):
 
 st.markdown('</div>', unsafe_allow_html=True)
 
+# ── Last-refreshed status bar ──────────────────────────────────────────────
+def _get_last_refresh_info():
+    """Return human-readable string for when data was last refreshed."""
+    from datetime import datetime, timezone
+    try:
+        all_meta = cache.get_all_metadata()
+        if not all_meta:
+            return None
+        fetched_times = []
+        for m in all_meta:
+            lf = m.get("last_fetched")
+            if lf:
+                fetched_times.append(datetime.fromisoformat(lf))
+        if not fetched_times:
+            return None
+        oldest = min(fetched_times)
+        newest = max(fetched_times)
+        now = datetime.now(timezone.utc)
+        age = now - newest
+        minutes = int(age.total_seconds() // 60)
+        fetched_count = len(fetched_times)
+        total_count = len(all_meta)
+
+        if minutes < 1:
+            age_str = "just now"
+        elif minutes < 60:
+            age_str = f"{minutes}m ago"
+        elif minutes < 1440:
+            age_str = f"{minutes // 60}h {minutes % 60}m ago"
+        else:
+            days = minutes // 1440
+            age_str = f"{days}d ago"
+
+        newest_local = newest.strftime("%b %d, %I:%M %p UTC")
+        return age_str, newest_local, fetched_count, total_count
+    except Exception:
+        return None
+
+_refresh_info = _get_last_refresh_info()
+if _refresh_info:
+    _age_str, _newest_local, _fetched_count, _total_count = _refresh_info
+    _fresh_pct = int((_fetched_count / _total_count) * 100) if _total_count else 0
+    if _fresh_pct == 100:
+        _dot_color = "#22c55e"
+    elif _fresh_pct >= 50:
+        _dot_color = "#eab308"
+    else:
+        _dot_color = "#ef4444"
+    st.markdown(
+        f'<div style="display:flex;align-items:center;justify-content:center;gap:12px;'
+        f'padding:4px 16px;margin:-4px 0 8px 0;'
+        f'background:rgba(255,255,255,0.015);border-bottom:1px solid rgba(255,255,255,0.04);'
+        f'font-size:0.72em;color:#64748b;letter-spacing:0.3px">'
+        f'<span style="display:inline-flex;align-items:center;gap:4px">'
+        f'<span style="width:6px;height:6px;border-radius:50%;background:{_dot_color};'
+        f'display:inline-block;box-shadow:0 0 6px {_dot_color}40"></span>'
+        f'Last refresh: {_age_str}</span>'
+        f'<span style="color:#475569">·</span>'
+        f'<span>{_newest_local}</span>'
+        f'<span style="color:#475569">·</span>'
+        f'<span>{_fetched_count}/{_total_count} series loaded</span>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+else:
+    st.markdown(
+        '<div style="display:flex;align-items:center;justify-content:center;gap:8px;'
+        'padding:4px 16px;margin:-4px 0 8px 0;'
+        'background:rgba(255,255,255,0.015);border-bottom:1px solid rgba(255,255,255,0.04);'
+        'font-size:0.72em;color:#64748b;letter-spacing:0.3px">'
+        '<span style="display:inline-flex;align-items:center;gap:4px">'
+        '<span style="width:6px;height:6px;border-radius:50%;background:#ef4444;'
+        'display:inline-block;box-shadow:0 0 6px #ef444440"></span>'
+        'No data loaded — click 📥 to fetch</span>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
 # ── Run ───────────────────────────────────────────────────────────────────
 pg.run()

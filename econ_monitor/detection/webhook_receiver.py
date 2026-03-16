@@ -8,7 +8,10 @@ data refresh from FRED/OpenBB.
 from __future__ import annotations
 
 import logging
-import winsound
+try:
+    import winsound  # Windows only
+except ImportError:
+    winsound = None  # type: ignore[assignment]
 from typing import Any
 
 from fastapi import FastAPI, Request

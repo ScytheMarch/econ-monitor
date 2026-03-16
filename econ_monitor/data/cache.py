@@ -178,6 +178,13 @@ def get_metadata(series_id: str) -> dict | None:
     return dict(row) if row else None
 
 
+def get_all_metadata() -> list[dict]:
+    """Return metadata rows for all series."""
+    with _connect() as conn:
+        rows = conn.execute("SELECT * FROM series_metadata").fetchall()
+    return [dict(r) for r in rows]
+
+
 def is_stale(series_id: str, max_age_hours: int = 24) -> bool:
     """Return True if series hasn't been fetched within max_age_hours."""
     meta = get_metadata(series_id)
