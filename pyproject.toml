@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "econ-monitor"
+version = "0.1.0"
+description = "Real-time economic indicator monitor with change detection"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    "openbb>=4.7.0",
+    "openbb-fred>=1.0.0",
+    "streamlit>=1.28.0",
+    "streamlit-autorefresh>=1.0.1",
+    "plotly>=5.17.0",
+    "fastapi>=0.104.0",
+    "uvicorn>=0.24.0",
+    "python-dotenv>=1.0.0",
+    "apscheduler>=3.10.0",
+    "requests>=2.31.0",
+    "pandas>=2.0.0",
+    "numpy>=1.24.0",
+    "google-generativeai>=0.8.0",
+    "yfinance>=0.2.30",
+]
+
+[project.optional-dependencies]
+changedetection = ["changedetection.io>=0.45.0"]
+dev = ["pytest>=7.4.0"]
+
+[tool.setuptools.packages.find]
+include = ["econ_monitor*"]
