@@ -18,6 +18,31 @@ def render() -> None:
 
     # ── Check availability ──────────────────────────────────────────────────
     from econ_monitor.analytics.ai_analysis import is_ai_available
+    import os
+
+    # Debug: show secret resolution (remove after confirming it works)
+    with st.expander("🔧 Debug: Secret Resolution", expanded=False):
+        try:
+            has_secrets = hasattr(st, "secrets")
+            st.write(f"st.secrets available: {has_secrets}")
+            if has_secrets:
+                try:
+                    gk = st.secrets["GEMINI_API_KEY"]
+                    st.write(f"st.secrets['GEMINI_API_KEY']: {gk[:8]}...{gk[-4:]}")
+                except KeyError:
+                    st.write("st.secrets['GEMINI_API_KEY']: NOT FOUND")
+                try:
+                    fk = st.secrets["FRED_API_KEY"]
+                    st.write(f"st.secrets['FRED_API_KEY']: {fk[:8]}...{fk[-4:]}")
+                except KeyError:
+                    st.write("st.secrets['FRED_API_KEY']: NOT FOUND")
+            env_gk = os.getenv("GEMINI_API_KEY", "NOT SET")
+            st.write(f"os.getenv('GEMINI_API_KEY'): {env_gk[:8] if env_gk != 'NOT SET' else 'NOT SET'}...")
+            from econ_monitor.config.settings import settings
+            st.write(f"settings.gemini_api_key: {repr(settings.gemini_api_key[:8]) if settings.gemini_api_key else 'EMPTY'}...")
+            st.write(f"is_ai_available(): {is_ai_available()}")
+        except Exception as e:
+            st.write(f"Debug error: {e}")
 
     if not is_ai_available():
         _render_setup_instructions()
