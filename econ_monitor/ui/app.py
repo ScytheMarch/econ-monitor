@@ -497,6 +497,81 @@ st.markdown("""
 </script>
 """, unsafe_allow_html=True)
 
+# ── Helper functions (must be defined before nav bar references them) ──────
+
+def _refresh_all() -> None:
+    from econ_monitor.data.openbb_client import fetch_series
+    from econ_monitor.config.indicators import INDICATORS as _IND
+    from econ_monitor.data import cache as _cache
+
+    progress = st.sidebar.progress(0, text="Refreshing...")
+    stale_ids = [sid for sid in _IND if _cache.is_stale(sid, max_age_hours=1)]
+
+    if not stale_ids:
+        st.sidebar.success("All data is fresh!")
+        return
+
+    for i, sid in enumerate(stale_ids):
+        ind = _IND[sid]
+        try:
+            df = fetch_series(sid, lookback_years=5)
+            if not df.empty:
+                _cache.upsert_observations(sid, df)
+                _cache.upsert_metadata(sid)
+        except Exception as e:
+            st.sidebar.warning(f"Failed to refresh {ind.name}: {e}")
+        progress.progress((i + 1) / len(stale_ids), text=f"Refreshing {ind.name}...")
+
+    progress.empty()
+    st.sidebar.success(f"Refreshed {len(stale_ids)} indicators")
+    st.rerun()
+
+
+def _initial_fetch() -> None:
+    from econ_monitor.data.openbb_client import fetch_series, get_series_info
+    from econ_monitor.config.indicators import INDICATORS as _IND
+    from econ_monitor.data import cache as _cache
+
+    progress = st.sidebar.progress(0, text="Fetching all indicators...")
+    total = len(_IND)
+    errors = []
+
+    for i, (sid, ind) in enumerate(_IND.items()):
+        try:
+            df = fetch_series(sid, lookback_years=5)
+            if not df.empty:
+                _cache.upsert_observations(sid, df)
+                try:
+                    info = get_series_info(sid)
+                    _cache.upsert_metadata(
+                        sid,
+                        title=info.get("title", ind.name),
+                        frequency=info.get("frequency", ind.frequency),
+                        units=info.get("units", ind.unit),
+                        last_updated=info.get("last_updated", ""),
+                    )
+                except Exception:
+                    _cache.upsert_metadata(sid, title=ind.name, frequency=ind.frequency, units=ind.unit)
+            else:
+                errors.append(f"{ind.name}: empty response")
+        except Exception as e:
+            errors.append(f"{ind.name}: {e}")
+
+        progress.progress((i + 1) / total, text=f"Fetching {ind.name}...")
+
+    progress.empty()
+
+    if errors:
+        st.sidebar.warning(f"Fetched with {len(errors)} errors")
+        with st.sidebar.expander("Errors"):
+            for err in errors:
+                st.text(err)
+    else:
+        st.sidebar.success(f"Successfully fetched all {total} indicators!")
+
+    st.rerun()
+
+
 # ── Horizontal top nav bar ─────────────────────────────────────────────────
 from econ_monitor.config.indicators import INDICATORS, CATEGORY_ORDER
 from econ_monitor.data import cache
@@ -575,78 +650,3 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 # ── Run ───────────────────────────────────────────────────────────────────
 pg.run()
-
-
-# ── Helpers ───────────────────────────────────────────────────────────────
-
-def _refresh_all() -> None:
-    from econ_monitor.data.openbb_client import fetch_series
-    from econ_monitor.config.indicators import INDICATORS
-    from econ_monitor.data import cache
-
-    progress = st.sidebar.progress(0, text="Refreshing...")
-    stale_ids = [sid for sid in INDICATORS if cache.is_stale(sid, max_age_hours=1)]
-
-    if not stale_ids:
-        st.sidebar.success("All data is fresh!")
-        return
-
-    for i, sid in enumerate(stale_ids):
-        ind = INDICATORS[sid]
-        try:
-            df = fetch_series(sid, lookback_years=5)
-            if not df.empty:
-                cache.upsert_observations(sid, df)
-                cache.upsert_metadata(sid)
-        except Exception as e:
-            st.sidebar.warning(f"Failed to refresh {ind.name}: {e}")
-        progress.progress((i + 1) / len(stale_ids), text=f"Refreshing {ind.name}...")
-
-    progress.empty()
-    st.sidebar.success(f"Refreshed {len(stale_ids)} indicators")
-    st.rerun()
-
-
-def _initial_fetch() -> None:
-    from econ_monitor.data.openbb_client import fetch_series, get_series_info
-    from econ_monitor.config.indicators import INDICATORS
-    from econ_monitor.data import cache
-
-    progress = st.sidebar.progress(0, text="Fetching all indicators...")
-    total = len(INDICATORS)
-    errors = []
-
-    for i, (sid, ind) in enumerate(INDICATORS.items()):
-        try:
-            df = fetch_series(sid, lookback_years=5)
-            if not df.empty:
-                cache.upsert_observations(sid, df)
-                try:
-                    info = get_series_info(sid)
-                    cache.upsert_metadata(
-                        sid,
-                        title=info.get("title", ind.name),
-                        frequency=info.get("frequency", ind.frequency),
-                        units=info.get("units", ind.unit),
-                        last_updated=info.get("last_updated", ""),
-                    )
-                except Exception:
-                    cache.upsert_metadata(sid, title=ind.name, frequency=ind.frequency, units=ind.unit)
-            else:
-                errors.append(f"{ind.name}: empty response")
-        except Exception as e:
-            errors.append(f"{ind.name}: {e}")
-
-        progress.progress((i + 1) / total, text=f"Fetching {ind.name}...")
-
-    progress.empty()
-
-    if errors:
-        st.sidebar.warning(f"Fetched with {len(errors)} errors")
-        with st.sidebar.expander("Errors"):
-            for err in errors:
-                st.text(err)
-    else:
-        st.sidebar.success(f"Successfully fetched all {total} indicators!")
-
-    st.rerun()
