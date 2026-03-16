@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "econ-monitor"
 version = "0.1.0"
 description = "Real-time economic indicator monitor with change detection"
-requires-python = ">=3.11,<3.14"
+requires-python = ">=3.11"
 dependencies = [
     "openbb>=4.7.0",
     "openbb-fred>=1.0.0",
@@ -20,7 +20,7 @@ dependencies = [
     "requests>=2.31.0",
     "pandas>=2.0.0",
     "numpy>=1.24.0",
-    "google-generativeai>=0.8.0",
+    "google-genai>=1.0.0",
     "yfinance>=0.2.30",
 ]
 
