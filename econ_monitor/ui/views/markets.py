@@ -40,7 +40,7 @@ def render() -> None:
         pass
 
     # ── Filters ──────────────────────────────────────────────────────────────
-    filter_cols = st.columns([2, 2, 4])
+    filter_cols = st.columns([1.5, 1.5, 3, 2])
     with filter_cols[0]:
         cat_options = ["All"] + list(_CATEGORIES.keys())
         selected_cat = st.selectbox(
@@ -51,6 +51,12 @@ def render() -> None:
             "Period", list(_PERIOD_OPTIONS.keys()), index=0,
             horizontal=True, key="market_period_radio",
         )
+    with filter_cols[3]:
+        custom_ticker = st.text_input(
+            "🔍 Look up ticker",
+            placeholder="e.g. AAPL, MSFT, TSLA",
+            key="market_custom_ticker",
+        ).strip().upper()
 
     period, interval = _PERIOD_OPTIONS[selected_period]
 
@@ -61,6 +67,14 @@ def render() -> None:
     if not snapshot:
         st.warning("Unable to fetch market data. Check your internet connection.")
         return
+
+    # ── Custom ticker lookup ─────────────────────────────────────────────────
+    if custom_ticker:
+        _render_custom_ticker(custom_ticker, period, interval)
+        st.markdown(
+            '<hr style="margin:16px 0;border-color:rgba(99,102,241,0.12)">',
+            unsafe_allow_html=True,
+        )
 
     # ── Render by category ───────────────────────────────────────────────────
     if selected_cat == "All":
@@ -121,6 +135,146 @@ def _rebuild_intraday(cached: dict | None):
         return pd.DataFrame()
     df = pd.DataFrame(cached["data"], index=cached["index"])
     return df
+
+
+# ── Custom ticker lookup ──────────────────────────────────────────────────────
+
+def _render_custom_ticker(ticker: str, period: str, interval: str) -> None:
+    """Fetch and render a user-searched ticker with quote card + sparkline."""
+    import yfinance as yf
+    import pandas as pd
+    from econ_monitor.ui.charts import intraday_sparkline
+
+    try:
+        tk = yf.Ticker(ticker)
+        info = tk.info or {}
+    except Exception:
+        st.error(f"Could not find ticker **{ticker}**. Check the symbol and try again.")
+        return
+
+    # Basic quote data
+    price = info.get("regularMarketPrice") or info.get("currentPrice")
+    prev_close = info.get("regularMarketPreviousClose") or info.get("previousClose")
+    name = info.get("shortName") or info.get("longName") or ticker
+    vol = info.get("regularMarketVolume") or info.get("volume")
+
+    if price is None:
+        st.error(f"No data available for **{ticker}**. It may be delisted or invalid.")
+        return
+
+    # Compute change
+    if prev_close and prev_close > 0:
+        change = price - prev_close
+        pct = (change / prev_close) * 100
+    else:
+        change = None
+        pct = None
+
+    # Format change string
+    if pct is not None and change is not None:
+        sign = "+" if change >= 0 else ""
+        change_color = "#22c55e" if change >= 0 else "#ef4444"
+        arrow = "▲" if change >= 0 else "▼"
+        change_str = (
+            f'<span style="color:{change_color};font-size:0.85em">'
+            f'{arrow} {sign}{change:,.2f} ({sign}{pct:.2f}%)</span>'
+        )
+    else:
+        change_str = '<span style="color:#475569;font-size:0.82em">—</span>'
+
+    # Format volume
+    if vol is not None and vol > 0:
+        if vol >= 1_000_000_000:
+            vol_str = f"Vol: {vol / 1_000_000_000:.1f}B"
+        elif vol >= 1_000_000:
+            vol_str = f"Vol: {vol / 1_000_000:.1f}M"
+        elif vol >= 1_000:
+            vol_str = f"Vol: {vol / 1_000:.0f}K"
+        else:
+            vol_str = f"Vol: {vol:,}"
+    else:
+        vol_str = ""
+
+    # Extra info
+    mkt_cap = info.get("marketCap")
+    if mkt_cap:
+        if mkt_cap >= 1_000_000_000_000:
+            cap_str = f"${mkt_cap / 1_000_000_000_000:.2f}T"
+        elif mkt_cap >= 1_000_000_000:
+            cap_str = f"${mkt_cap / 1_000_000_000:.2f}B"
+        elif mkt_cap >= 1_000_000:
+            cap_str = f"${mkt_cap / 1_000_000:.1f}M"
+        else:
+            cap_str = f"${mkt_cap:,.0f}"
+    else:
+        cap_str = ""
+
+    sector = info.get("sector", "")
+    day_high = info.get("regularMarketDayHigh") or info.get("dayHigh")
+    day_low = info.get("regularMarketDayLow") or info.get("dayLow")
+
+    # ── Render ────────────────────────────────────────────────────────────
+    st.markdown(
+        f'<div style="color:#64748b;font-size:0.75em;text-transform:uppercase;'
+        f'letter-spacing:1.5px;font-weight:600;margin:16px 0 8px 0">Ticker Lookup</div>',
+        unsafe_allow_html=True,
+    )
+
+    c1, c2 = st.columns([1, 2])
+
+    with c1:
+        # Quote card
+        meta_parts = []
+        if sector:
+            meta_parts.append(sector)
+        if cap_str:
+            meta_parts.append(f"Cap: {cap_str}")
+        meta_html = (
+            f'<div style="color:#475569;font-size:0.7em;margin-top:4px">'
+            f'{" · ".join(meta_parts)}</div>'
+            if meta_parts else ""
+        )
+
+        range_html = ""
+        if day_high is not None and day_low is not None:
+            range_html = (
+                f'<div style="color:#475569;font-size:0.7em;margin-top:2px">'
+                f'Day: {day_low:,.2f} – {day_high:,.2f}</div>'
+            )
+
+        st.markdown(
+            f'<div style="background:linear-gradient(135deg,rgba(99,102,241,0.08),'
+            f'rgba(139,92,246,0.05));border:1px solid rgba(99,102,241,0.2);'
+            f'border-radius:12px;padding:18px 20px;min-height:120px">'
+            f'<div style="color:#c7d2fe;font-size:0.82em;font-weight:700;'
+            f'margin-bottom:6px">{name} <span style="color:#64748b;font-weight:400">'
+            f'({ticker})</span></div>'
+            f'<div style="color:#f1f5f9;font-size:1.8em;font-weight:700;'
+            f'letter-spacing:-0.5px">${price:,.2f}</div>'
+            f'{change_str}'
+            f'<div style="color:#475569;font-size:0.7em;margin-top:4px">{vol_str}</div>'
+            f'{range_html}'
+            f'{meta_html}'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+    with c2:
+        # Sparkline
+        try:
+            hist = tk.history(period=period, interval=interval)
+            if not hist.empty and "Close" in hist.columns:
+                spark_df = hist[["Close"]].rename(columns={"Close": "close"})
+                fig = intraday_sparkline(spark_df, height=160)
+                st.plotly_chart(
+                    fig, use_container_width=True,
+                    config={"displayModeBar": False},
+                    key=f"spark_custom_{ticker}",
+                )
+            else:
+                st.caption("No intraday data available for this ticker.")
+        except Exception:
+            st.caption("Unable to load chart data.")
 
 
 # ── Section renderer ─────────────────────────────────────────────────────────

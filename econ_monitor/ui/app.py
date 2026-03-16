@@ -158,6 +158,16 @@ header[data-testid="stHeader"] {
     line-height: 1 !important;
 }
 
+/* ── Action buttons (refresh/fetch) — centered alignment ────────── */
+.top-nav-bar [data-testid="stHorizontalBlock"]:last-child .stButton > button {
+    padding: 4px 6px !important;
+    min-height: 38px !important;
+    max-height: 38px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
 /* ── Headers ────────────────────────────────────────────────────────── */
 .stMarkdown h1, .stMarkdown h2 {
     font-weight: 700 !important;
@@ -601,7 +611,7 @@ def _on_quick_jump():
 
 # Top bar layout: title | nav buttons | quick-jump | actions
 st.markdown('<div class="top-nav-bar">', unsafe_allow_html=True)
-_nav_col_title, _nav_col_links, _nav_col_jump, _nav_col_actions = st.columns([0.4, 8.2, 1.2, 0.4])
+_nav_col_title, _nav_col_links, _nav_col_jump, _nav_col_actions = st.columns([0.4, 7.8, 1.2, 0.6])
 
 with _nav_col_title:
     st.markdown(
