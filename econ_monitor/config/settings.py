@@ -8,9 +8,12 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-# Load .env from project root
+# Load .env from project root (don't override existing env vars —
+# Streamlit Cloud sets secrets as env vars and we don't want to clobber them)
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-load_dotenv(_PROJECT_ROOT / ".env", override=True)
+_env_file = _PROJECT_ROOT / ".env"
+if _env_file.exists():
+    load_dotenv(_env_file, override=False)
 
 
 def _get_secret(key: str, default: str = "") -> str:
