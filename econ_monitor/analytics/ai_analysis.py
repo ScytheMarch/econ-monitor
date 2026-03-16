@@ -13,10 +13,26 @@ import json
 from econ_monitor.config.settings import settings
 
 
+def _resolve_gemini_key() -> str:
+    """Get Gemini API key from settings, st.secrets, or env — in that order."""
+    key = getattr(settings, "gemini_api_key", "") or ""
+    if key:
+        return key
+    try:
+        import streamlit as st
+        key = st.secrets.get("GEMINI_API_KEY", "")
+        if key:
+            return str(key)
+    except Exception:
+        pass
+    import os
+    return os.getenv("GEMINI_API_KEY", "")
+
+
 def _get_model(max_tokens: int = 1500):
     """Lazy-initialize Gemini model. Returns None if no API key."""
     try:
-        api_key = getattr(settings, "gemini_api_key", "") or ""
+        api_key = _resolve_gemini_key()
         if not api_key:
             return None
         from google import genai
