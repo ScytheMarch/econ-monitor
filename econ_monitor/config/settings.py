@@ -22,10 +22,11 @@ def _get_secret(key: str, default: str = "") -> str:
     # 1. Try Streamlit secrets (works on Streamlit Cloud)
     try:
         import streamlit as st
-        val = st.secrets.get(key, "")
-        if val:
-            return str(val)
-    except Exception:
+        if hasattr(st, "secrets"):
+            val = st.secrets[key]
+            if val:
+                return str(val)
+    except (KeyError, AttributeError, Exception):
         pass
     # 2. Fall back to environment variable
     return os.getenv(key, default)
@@ -39,15 +40,11 @@ class Settings:
 
     @property
     def fred_api_key(self) -> str:
-        if "fred" not in self._cache:
-            self._cache["fred"] = _get_secret("FRED_API_KEY")
-        return self._cache["fred"]
+        return _get_secret("FRED_API_KEY")
 
     @property
     def gemini_api_key(self) -> str:
-        if "gemini" not in self._cache:
-            self._cache["gemini"] = _get_secret("GEMINI_API_KEY")
-        return self._cache["gemini"]
+        return _get_secret("GEMINI_API_KEY")
 
     @property
     def changedetection_url(self) -> str:
