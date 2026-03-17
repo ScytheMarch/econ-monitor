@@ -639,18 +639,19 @@ with _nav_col_jump:
         "Jump to Indicator",
         options=[""] + _options_list,
         key="topbar_quick_jump",
-        placeholder="Search indicators...",
+        placeholder="⏩ Jump to indicator...",
         on_change=_on_quick_jump,
         label_visibility="collapsed",
+        help="Select an indicator to jump straight to its Detail page",
     )
 
 with _nav_col_actions:
     _act_cols = st.columns(2)
     with _act_cols[0]:
-        if st.button("🔄", key="refresh_btn", help="Refresh All Data", use_container_width=True):
+        if st.button("🔄", key="refresh_btn", help="Refresh stale data (only updates series older than 1 hour)", use_container_width=True):
             _refresh_all()
     with _act_cols[1]:
-        if st.button("📥", key="fetch_btn", help="Initial Data Fetch", use_container_width=True):
+        if st.button("📥", key="fetch_btn", help="Fetch ALL economic data from FRED (run this first if dashboard is empty)", use_container_width=True):
             _initial_fetch()
 
 if st.session_state.pop("_do_jump", False):
@@ -731,7 +732,7 @@ else:
         '<span style="display:inline-flex;align-items:center;gap:4px">'
         '<span style="width:6px;height:6px;border-radius:50%;background:#ef4444;'
         'display:inline-block;box-shadow:0 0 6px #ef444440"></span>'
-        'No data loaded — click 📥 to fetch</span>'
+        'No data loaded yet — click the <b>📥 fetch button</b> (top-right) to pull all economic data</span>'
         '</div>',
         unsafe_allow_html=True,
     )
