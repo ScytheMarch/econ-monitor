@@ -145,18 +145,65 @@ def _render_custom_ticker(ticker: str, period: str, interval: str) -> None:
     import pandas as pd
     from econ_monitor.ui.charts import intraday_sparkline
 
-    try:
-        tk = yf.Ticker(ticker)
-        info = tk.info or {}
-    except Exception:
-        st.error(f"Could not find ticker **{ticker}**. Check the symbol and try again.")
-        return
+    tk = yf.Ticker(ticker)
 
-    # Basic quote data
-    price = info.get("regularMarketPrice") or info.get("currentPrice")
-    prev_close = info.get("regularMarketPreviousClose") or info.get("previousClose")
-    name = info.get("shortName") or info.get("longName") or ticker
-    vol = info.get("regularMarketVolume") or info.get("volume")
+    # ── Get price data — try fast_info first, then history, then info ──
+    price = None
+    prev_close = None
+    name = ticker
+    vol = None
+    day_high = None
+    day_low = None
+    mkt_cap = None
+    sector = ""
+
+    # 1) Try fast_info (lightweight, works on Cloud)
+    try:
+        fi = tk.fast_info
+        price = getattr(fi, "last_price", None)
+        prev_close = getattr(fi, "previous_close", None)
+        mkt_cap = getattr(fi, "market_cap", None)
+        day_high = getattr(fi, "day_high", None)
+        day_low = getattr(fi, "day_low", None)
+    except Exception:
+        pass
+
+    # 2) Try history as fallback for price
+    hist = pd.DataFrame()
+    try:
+        hist = tk.history(period=period, interval=interval)
+        if price is None and not hist.empty and "Close" in hist.columns:
+            price = float(hist["Close"].iloc[-1])
+        if not hist.empty and "Volume" in hist.columns:
+            vol = int(hist["Volume"].iloc[-1])
+        # Get prev close from daily history if needed
+        if prev_close is None:
+            daily = tk.history(period="5d", interval="1d")
+            if not daily.empty and len(daily) >= 2:
+                prev_close = float(daily["Close"].iloc[-2])
+    except Exception:
+        pass
+
+    # 3) Try info for name/sector (may fail on Cloud, that's OK)
+    try:
+        info = tk.info or {}
+        name = info.get("shortName") or info.get("longName") or ticker
+        if not sector:
+            sector = info.get("sector", "")
+        if vol is None:
+            vol = info.get("regularMarketVolume") or info.get("volume")
+        if mkt_cap is None:
+            mkt_cap = info.get("marketCap")
+        if day_high is None:
+            day_high = info.get("regularMarketDayHigh") or info.get("dayHigh")
+        if day_low is None:
+            day_low = info.get("regularMarketDayLow") or info.get("dayLow")
+        if price is None:
+            price = info.get("regularMarketPrice") or info.get("currentPrice")
+        if prev_close is None:
+            prev_close = info.get("regularMarketPreviousClose") or info.get("previousClose")
+    except Exception:
+        pass
 
     if price is None:
         st.error(f"No data available for **{ticker}**. It may be delisted or invalid.")
@@ -196,7 +243,6 @@ def _render_custom_ticker(ticker: str, period: str, interval: str) -> None:
         vol_str = ""
 
     # Extra info
-    mkt_cap = info.get("marketCap")
     if mkt_cap:
         if mkt_cap >= 1_000_000_000_000:
             cap_str = f"${mkt_cap / 1_000_000_000_000:.2f}T"
@@ -208,10 +254,6 @@ def _render_custom_ticker(ticker: str, period: str, interval: str) -> None:
             cap_str = f"${mkt_cap:,.0f}"
     else:
         cap_str = ""
-
-    sector = info.get("sector", "")
-    day_high = info.get("regularMarketDayHigh") or info.get("dayHigh")
-    day_low = info.get("regularMarketDayLow") or info.get("dayLow")
 
     # ── Render ────────────────────────────────────────────────────────────
     st.markdown(
@@ -262,7 +304,8 @@ def _render_custom_ticker(ticker: str, period: str, interval: str) -> None:
     with c2:
         # Sparkline
         try:
-            hist = tk.history(period=period, interval=interval)
+            if hist.empty or "Close" not in hist.columns:
+                hist = tk.history(period=period, interval=interval)
             if not hist.empty and "Close" in hist.columns:
                 spark_df = hist[["Close"]].rename(columns={"Close": "close"})
                 fig = intraday_sparkline(spark_df, height=160)
@@ -272,7 +315,7 @@ def _render_custom_ticker(ticker: str, period: str, interval: str) -> None:
                     key=f"spark_custom_{ticker}",
                 )
             else:
-                st.caption("No intraday data available for this ticker.")
+                st.caption("No chart data available for this ticker.")
         except Exception:
             st.caption("Unable to load chart data.")
 
