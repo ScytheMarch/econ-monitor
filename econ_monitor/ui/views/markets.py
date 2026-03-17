@@ -147,7 +147,7 @@ def _render_custom_ticker(ticker: str, period: str, interval: str) -> None:
 
     tk = yf.Ticker(ticker)
 
-    # ── Get price data — try fast_info first, then history, then info ──
+    # ── Collect all data ──────────────────────────────────────────────────
     price = None
     prev_close = None
     name = ticker
@@ -156,8 +156,18 @@ def _render_custom_ticker(ticker: str, period: str, interval: str) -> None:
     day_low = None
     mkt_cap = None
     sector = ""
+    industry = ""
+    beta = None
+    pe_ratio = None
+    fwd_pe = None
+    eps = None
+    div_yield = None
+    week52_high = None
+    week52_low = None
+    avg_vol = None
+    open_price = None
 
-    # 1) Try fast_info (lightweight, works on Cloud)
+    # 1) fast_info (lightweight, works on Cloud)
     try:
         fi = tk.fast_info
         price = getattr(fi, "last_price", None)
@@ -165,10 +175,13 @@ def _render_custom_ticker(ticker: str, period: str, interval: str) -> None:
         mkt_cap = getattr(fi, "market_cap", None)
         day_high = getattr(fi, "day_high", None)
         day_low = getattr(fi, "day_low", None)
+        open_price = getattr(fi, "open", None)
+        week52_high = getattr(fi, "year_high", None)
+        week52_low = getattr(fi, "year_low", None)
     except Exception:
         pass
 
-    # 2) Try history as fallback for price
+    # 2) history for price fallback + chart data
     hist = pd.DataFrame()
     try:
         hist = tk.history(period=period, interval=interval)
@@ -176,7 +189,6 @@ def _render_custom_ticker(ticker: str, period: str, interval: str) -> None:
             price = float(hist["Close"].iloc[-1])
         if not hist.empty and "Volume" in hist.columns:
             vol = int(hist["Volume"].iloc[-1])
-        # Get prev close from daily history if needed
         if prev_close is None:
             daily = tk.history(period="5d", interval="1d")
             if not daily.empty and len(daily) >= 2:
@@ -184,12 +196,19 @@ def _render_custom_ticker(ticker: str, period: str, interval: str) -> None:
     except Exception:
         pass
 
-    # 3) Try info for name/sector (may fail on Cloud, that's OK)
+    # 3) info for rich metadata (may fail on Cloud — graceful)
+    info = {}
     try:
         info = tk.info or {}
         name = info.get("shortName") or info.get("longName") or ticker
-        if not sector:
-            sector = info.get("sector", "")
+        sector = info.get("sector", "") or sector
+        industry = info.get("industry", "")
+        beta = info.get("beta")
+        pe_ratio = info.get("trailingPE")
+        fwd_pe = info.get("forwardPE")
+        eps = info.get("trailingEps")
+        div_yield = info.get("dividendYield")
+        avg_vol = info.get("averageVolume")
         if vol is None:
             vol = info.get("regularMarketVolume") or info.get("volume")
         if mkt_cap is None:
@@ -202,6 +221,12 @@ def _render_custom_ticker(ticker: str, period: str, interval: str) -> None:
             price = info.get("regularMarketPrice") or info.get("currentPrice")
         if prev_close is None:
             prev_close = info.get("regularMarketPreviousClose") or info.get("previousClose")
+        if open_price is None:
+            open_price = info.get("regularMarketOpen") or info.get("open")
+        if week52_high is None:
+            week52_high = info.get("fiftyTwoWeekHigh")
+        if week52_low is None:
+            week52_low = info.get("fiftyTwoWeekLow")
     except Exception:
         pass
 
@@ -209,51 +234,52 @@ def _render_custom_ticker(ticker: str, period: str, interval: str) -> None:
         st.error(f"No data available for **{ticker}**. It may be delisted or invalid.")
         return
 
-    # Compute change
+    # ── Computed values ────────────────────────────────────────────────────
+    change = None
+    pct = None
     if prev_close and prev_close > 0:
         change = price - prev_close
         pct = (change / prev_close) * 100
-    else:
-        change = None
-        pct = None
 
-    # Format change string
+    # Change string
     if pct is not None and change is not None:
         sign = "+" if change >= 0 else ""
-        change_color = "#22c55e" if change >= 0 else "#ef4444"
+        chg_color = "#22c55e" if change >= 0 else "#ef4444"
         arrow = "▲" if change >= 0 else "▼"
         change_str = (
-            f'<span style="color:{change_color};font-size:0.85em">'
+            f'<span style="color:{chg_color};font-size:0.85em">'
             f'{arrow} {sign}{change:,.2f} ({sign}{pct:.2f}%)</span>'
         )
     else:
         change_str = '<span style="color:#475569;font-size:0.82em">—</span>'
 
-    # Format volume
-    if vol is not None and vol > 0:
-        if vol >= 1_000_000_000:
-            vol_str = f"Vol: {vol / 1_000_000_000:.1f}B"
-        elif vol >= 1_000_000:
-            vol_str = f"Vol: {vol / 1_000_000:.1f}M"
-        elif vol >= 1_000:
-            vol_str = f"Vol: {vol / 1_000:.0f}K"
-        else:
-            vol_str = f"Vol: {vol:,}"
-    else:
-        vol_str = ""
+    # Format helpers
+    def _fmt_big(n):
+        if n is None:
+            return "—"
+        if n >= 1_000_000_000_000:
+            return f"${n / 1_000_000_000_000:.2f}T"
+        if n >= 1_000_000_000:
+            return f"${n / 1_000_000_000:.2f}B"
+        if n >= 1_000_000:
+            return f"${n / 1_000_000:.1f}M"
+        return f"${n:,.0f}"
 
-    # Extra info
-    if mkt_cap:
-        if mkt_cap >= 1_000_000_000_000:
-            cap_str = f"${mkt_cap / 1_000_000_000_000:.2f}T"
-        elif mkt_cap >= 1_000_000_000:
-            cap_str = f"${mkt_cap / 1_000_000_000:.2f}B"
-        elif mkt_cap >= 1_000_000:
-            cap_str = f"${mkt_cap / 1_000_000:.1f}M"
-        else:
-            cap_str = f"${mkt_cap:,.0f}"
-    else:
-        cap_str = ""
+    def _fmt_vol(v):
+        if v is None or v <= 0:
+            return "—"
+        if v >= 1_000_000_000:
+            return f"{v / 1_000_000_000:.1f}B"
+        if v >= 1_000_000:
+            return f"{v / 1_000_000:.1f}M"
+        if v >= 1_000:
+            return f"{v / 1_000:.0f}K"
+        return f"{v:,}"
+
+    # 52-week position bar
+    pct_52w = None
+    if week52_high and week52_low and week52_high > week52_low:
+        pct_52w = (price - week52_low) / (week52_high - week52_low) * 100
 
     # ── Render ────────────────────────────────────────────────────────────
     st.markdown(
@@ -262,53 +288,64 @@ def _render_custom_ticker(ticker: str, period: str, interval: str) -> None:
         unsafe_allow_html=True,
     )
 
+    # Row 1: Quote card + Chart
     c1, c2 = st.columns([1, 2])
 
     with c1:
-        # Quote card
-        meta_parts = []
-        if sector:
-            meta_parts.append(sector)
-        if cap_str:
-            meta_parts.append(f"Cap: {cap_str}")
+        meta_line = " · ".join(
+            [x for x in [sector, industry] if x]
+        )
         meta_html = (
-            f'<div style="color:#475569;font-size:0.7em;margin-top:4px">'
-            f'{" · ".join(meta_parts)}</div>'
-            if meta_parts else ""
+            f'<div style="color:#475569;font-size:0.68em;margin-top:4px">{meta_line}</div>'
+            if meta_line else ""
         )
 
         range_html = ""
         if day_high is not None and day_low is not None:
             range_html = (
-                f'<div style="color:#475569;font-size:0.7em;margin-top:2px">'
+                f'<div style="color:#475569;font-size:0.68em;margin-top:2px">'
                 f'Day: {day_low:,.2f} – {day_high:,.2f}</div>'
+            )
+
+        w52_html = ""
+        if week52_low is not None and week52_high is not None:
+            bar_pct = max(0, min(100, pct_52w or 0))
+            w52_html = (
+                f'<div style="margin-top:6px">'
+                f'<div style="color:#475569;font-size:0.68em;margin-bottom:2px">'
+                f'52w: ${week52_low:,.2f} – ${week52_high:,.2f}</div>'
+                f'<div style="background:rgba(255,255,255,0.06);border-radius:4px;height:4px;'
+                f'overflow:hidden;position:relative">'
+                f'<div style="background:linear-gradient(90deg,#6366f1,#a78bfa);height:100%;'
+                f'width:{bar_pct:.0f}%;border-radius:4px"></div>'
+                f'</div>'
+                f'</div>'
             )
 
         st.markdown(
             f'<div style="background:linear-gradient(135deg,rgba(99,102,241,0.08),'
             f'rgba(139,92,246,0.05));border:1px solid rgba(99,102,241,0.2);'
-            f'border-radius:12px;padding:18px 20px;min-height:120px">'
+            f'border-radius:12px;padding:18px 20px">'
             f'<div style="color:#c7d2fe;font-size:0.82em;font-weight:700;'
             f'margin-bottom:6px">{name} <span style="color:#64748b;font-weight:400">'
             f'({ticker})</span></div>'
             f'<div style="color:#f1f5f9;font-size:1.8em;font-weight:700;'
             f'letter-spacing:-0.5px">${price:,.2f}</div>'
             f'{change_str}'
-            f'<div style="color:#475569;font-size:0.7em;margin-top:4px">{vol_str}</div>'
             f'{range_html}'
+            f'{w52_html}'
             f'{meta_html}'
             f'</div>',
             unsafe_allow_html=True,
         )
 
     with c2:
-        # Sparkline
+        # Chart — pass Close column WITHOUT renaming (sparkline expects "Close")
         try:
             if hist.empty or "Close" not in hist.columns:
                 hist = tk.history(period=period, interval=interval)
             if not hist.empty and "Close" in hist.columns:
-                spark_df = hist[["Close"]].rename(columns={"Close": "close"})
-                fig = intraday_sparkline(spark_df, height=160)
+                fig = intraday_sparkline(hist[["Close"]], height=180)
                 st.plotly_chart(
                     fig, use_container_width=True,
                     config={"displayModeBar": False},
@@ -318,6 +355,54 @@ def _render_custom_ticker(ticker: str, period: str, interval: str) -> None:
                 st.caption("No chart data available for this ticker.")
         except Exception:
             st.caption("Unable to load chart data.")
+
+    # Row 2: Stats grid
+    def _stat(label, value):
+        return (
+            f'<div style="text-align:center;padding:8px 4px">'
+            f'<div style="color:#64748b;font-size:0.68em;text-transform:uppercase;'
+            f'letter-spacing:0.5px;font-weight:600">{label}</div>'
+            f'<div style="color:#e2e8f0;font-size:0.95em;font-weight:600;'
+            f'margin-top:2px">{value}</div>'
+            f'</div>'
+        )
+
+    stats = []
+    if open_price is not None:
+        stats.append(_stat("Open", f"${open_price:,.2f}"))
+    if prev_close is not None:
+        stats.append(_stat("Prev Close", f"${prev_close:,.2f}"))
+    stats.append(_stat("Volume", _fmt_vol(vol)))
+    stats.append(_stat("Avg Volume", _fmt_vol(avg_vol)))
+    stats.append(_stat("Mkt Cap", _fmt_big(mkt_cap)))
+    if beta is not None:
+        beta_color = "#22c55e" if 0.8 <= beta <= 1.2 else "#eab308" if beta < 0.8 else "#ef4444"
+        stats.append(_stat("Beta",
+            f'<span style="color:{beta_color}">{beta:.2f}</span>'))
+    if pe_ratio is not None:
+        pe_color = "#22c55e" if pe_ratio < 20 else "#eab308" if pe_ratio < 35 else "#ef4444"
+        stats.append(_stat("P/E",
+            f'<span style="color:{pe_color}">{pe_ratio:.1f}</span>'))
+    if fwd_pe is not None:
+        stats.append(_stat("Fwd P/E", f"{fwd_pe:.1f}"))
+    if eps is not None:
+        eps_color = "#22c55e" if eps > 0 else "#ef4444"
+        stats.append(_stat("EPS",
+            f'<span style="color:{eps_color}">${eps:.2f}</span>'))
+    if div_yield is not None and div_yield > 0:
+        stats.append(_stat("Div Yield", f"{div_yield * 100:.2f}%"))
+
+    if stats:
+        cols_per_row = min(len(stats), 6)
+        grid_html = (
+            f'<div style="display:grid;grid-template-columns:repeat({cols_per_row},1fr);'
+            f'gap:4px;background:linear-gradient(135deg,rgba(255,255,255,0.03),'
+            f'rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.06);'
+            f'border-radius:12px;padding:10px 12px;margin-top:8px">'
+            + "".join(stats)
+            + '</div>'
+        )
+        st.markdown(grid_html, unsafe_allow_html=True)
 
 
 # ── Section renderer ─────────────────────────────────────────────────────────
