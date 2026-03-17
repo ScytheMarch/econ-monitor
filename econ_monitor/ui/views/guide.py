@@ -24,6 +24,157 @@ def render() -> None:
         "What it measures, why it matters, and key thresholds to watch."
     )
 
+    # ── How to Read This Dashboard (collapsible tutorial) ─────────────
+    with st.expander("📘 **How to Read This Dashboard** — Z-scores, signals, gauges & key thresholds", expanded=False):
+        st.markdown(
+            '<div style="font-size:0.92em;color:#cbd5e1;line-height:1.7">'
+
+            # Z-Score explanation
+            '<div style="margin-bottom:16px">'
+            '<div style="color:#c7d2fe;font-weight:700;font-size:1.05em;margin-bottom:6px">'
+            '📊 What is a Z-Score?</div>'
+            'A Z-score tells you <b>how unusual</b> the current reading is compared to recent history. '
+            'It measures how many standard deviations (σ) the value is from the average.<br><br>'
+            '<div style="display:grid;grid-template-columns:auto 1fr;gap:4px 16px;font-size:0.92em;'
+            'padding:10px 14px;background:rgba(255,255,255,0.03);border-radius:10px;border:1px solid rgba(255,255,255,0.06)">'
+            '<span style="color:#6b7280;font-weight:600">0σ</span><span>Exactly at the historical average</span>'
+            '<span style="color:#eab308;font-weight:600">±1σ</span><span>Moderate move — worth noting but not unusual</span>'
+            '<span style="color:#f97316;font-weight:600">±2σ</span><span>Large move — this happens &lt;5% of the time</span>'
+            '<span style="color:#ef4444;font-weight:600">±3σ</span><span>Extreme — very rare, top/bottom ~1% of readings</span>'
+            '</div>'
+            '</div>'
+
+            # Signal colors
+            '<div style="margin-bottom:16px">'
+            '<div style="color:#c7d2fe;font-weight:700;font-size:1.05em;margin-bottom:6px">'
+            '🚦 Signal Colors</div>'
+            'On each indicator\'s Significance tab, you\'ll see a color-coded signal card:<br><br>'
+            '<div style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:0.92em">'
+            '<span>🟢 <b style="color:#22c55e">Favorable</b></span>'
+            '<span>Conditions improving — inflation cooling, jobs growing, stress easing</span>'
+            '<span>🟡 <b style="color:#eab308">Watch</b></span>'
+            '<span>Notable but not alarming — keep an eye on the next reading</span>'
+            '<span>🔴 <b style="color:#ef4444">Warning</b></span>'
+            '<span>Stress signal — inflation rising sharply, jobs dropping, credit tightening</span>'
+            '<span>⚪ <b style="color:#94a3b8">Neutral</b></span>'
+            '<span>Within normal range — no strong signal in either direction</span>'
+            '</div>'
+            '</div>'
+
+            # Direction badges
+            '<div style="margin-bottom:16px">'
+            '<div style="color:#c7d2fe;font-weight:700;font-size:1.05em;margin-bottom:6px">'
+            '↕️ What "Higher Is" Means</div>'
+            'Each indicator has a direction tag explaining what happens when the number goes up:<br><br>'
+            '<div style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:0.92em">'
+            '<span style="background:#22c55e;color:white;padding:1px 8px;border-radius:10px;font-size:0.85em;font-weight:700">↑ = GROWTH</span>'
+            '<span>Higher is good — more jobs, more output, stronger economy</span>'
+            '<span style="background:#ef4444;color:white;padding:1px 8px;border-radius:10px;font-size:0.85em;font-weight:700">↑ = INFLATION</span>'
+            '<span>Higher is concerning — prices rising faster, squeezing budgets</span>'
+            '<span style="background:#eab308;color:black;padding:1px 8px;border-radius:10px;font-size:0.85em;font-weight:700">↑ = WEAKNESS</span>'
+            '<span>Higher is bad — more unemployment claims, more delinquencies</span>'
+            '<span style="background:#6b7280;color:white;padding:1px 8px;border-radius:10px;font-size:0.85em;font-weight:700">NEUTRAL</span>'
+            '<span>Depends on context — yield levels, spreads, etc.</span>'
+            '</div>'
+            '</div>'
+
+            # Key thresholds cheat sheet
+            '<div style="margin-bottom:16px">'
+            '<div style="color:#c7d2fe;font-weight:700;font-size:1.05em;margin-bottom:6px">'
+            '🎯 Key Thresholds Cheat Sheet</div>'
+            '<div style="font-size:0.92em">'
+
+            '<div style="padding:10px 14px;background:rgba(255,255,255,0.03);border-radius:10px;'
+            'border:1px solid rgba(255,255,255,0.06);margin-bottom:8px">'
+            '<div style="color:#818cf8;font-weight:700;margin-bottom:4px">10Y-2Y Yield Spread (T10Y2Y)</div>'
+            '<b style="color:#22c55e">Positive (e.g. +1.5)</b> = Normal — long-term rates above short-term, economy expected to grow<br>'
+            '<b style="color:#eab308">Near zero (±0.2)</b> = Flattening — market uncertainty about growth outlook<br>'
+            '<b style="color:#ef4444">Negative (e.g. -0.5)</b> = Inverted — recession warning, every recession since 1970 was preceded by this<br>'
+            '<span style="color:#94a3b8">When it <i>un-inverts</i> (goes from negative back to positive), recession may be imminent — that\'s the "re-steepening" signal</span>'
+            '</div>'
+
+            '<div style="padding:10px 14px;background:rgba(255,255,255,0.03);border-radius:10px;'
+            'border:1px solid rgba(255,255,255,0.06);margin-bottom:8px">'
+            '<div style="color:#818cf8;font-weight:700;margin-bottom:4px">2Y vs 10Y Treasury Yields (DGS2 / DGS10)</div>'
+            '<b style="color:#ef4444">2Y rising, 10Y falling</b> = Curve flattening/inverting — market expects rate cuts ahead (recession risk)<br>'
+            '<b style="color:#22c55e">2Y falling, 10Y rising</b> = Curve steepening — market expects growth + inflation (bullish)<br>'
+            '<b>Both rising</b> = Fed tightening, inflation fears across the board<br>'
+            '<b>Both falling</b> = Flight to safety, slowdown expected'
+            '</div>'
+
+            '<div style="padding:10px 14px;background:rgba(255,255,255,0.03);border-radius:10px;'
+            'border:1px solid rgba(255,255,255,0.06);margin-bottom:8px">'
+            '<div style="color:#818cf8;font-weight:700;margin-bottom:4px">Unemployment Rate (UNRATE)</div>'
+            '<b style="color:#22c55e">Below 4%</b> = Full employment — labor market is tight<br>'
+            '<b style="color:#eab308">4-5%</b> = Normal range<br>'
+            '<b style="color:#ef4444">Above 5%</b> = Elevated — signals economic weakness<br>'
+            '<span style="color:#94a3b8">The Sahm Rule: if the 3-month average rises 0.5% from its 12-month low, recession has likely started</span>'
+            '</div>'
+
+            '<div style="padding:10px 14px;background:rgba(255,255,255,0.03);border-radius:10px;'
+            'border:1px solid rgba(255,255,255,0.06);margin-bottom:8px">'
+            '<div style="color:#818cf8;font-weight:700;margin-bottom:4px">Core PCE / Core CPI (Inflation)</div>'
+            '<b style="color:#22c55e">Below 2% YoY</b> = Fed\'s target — "mission accomplished"<br>'
+            '<b style="color:#eab308">2-3% YoY</b> = Slightly hot — Fed may hold rates<br>'
+            '<b style="color:#ef4444">Above 3% YoY</b> = Too hot — Fed likely hiking or holding high<br>'
+            '<b style="color:#ef4444">Above 5% YoY</b> = Crisis-level — aggressive tightening expected'
+            '</div>'
+
+            '<div style="padding:10px 14px;background:rgba(255,255,255,0.03);border-radius:10px;'
+            'border:1px solid rgba(255,255,255,0.06);margin-bottom:8px">'
+            '<div style="color:#818cf8;font-weight:700;margin-bottom:4px">Initial Jobless Claims (ICSA)</div>'
+            '<b style="color:#22c55e">Below 220K</b> = Very healthy labor market<br>'
+            '<b style="color:#eab308">220-280K</b> = Normal range<br>'
+            '<b style="color:#ef4444">Above 300K</b> = Trouble — layoffs accelerating<br>'
+            '<b style="color:#ef4444">Above 400K</b> = Recessionary territory'
+            '</div>'
+
+            '<div style="padding:10px 14px;background:rgba(255,255,255,0.03);border-radius:10px;'
+            'border:1px solid rgba(255,255,255,0.06);margin-bottom:8px">'
+            '<div style="color:#818cf8;font-weight:700;margin-bottom:4px">Nonfarm Payrolls (PAYEMS)</div>'
+            '<b style="color:#22c55e">Above 200K/mo</b> = Strong job growth<br>'
+            '<b style="color:#eab308">100-200K/mo</b> = Moderate — economy coasting<br>'
+            '<b style="color:#ef4444">Below 100K/mo</b> = Weak — barely keeping up with population growth<br>'
+            '<b style="color:#ef4444">Negative</b> = Economy is shedding jobs — recession signal'
+            '</div>'
+
+            '<div style="padding:10px 14px;background:rgba(255,255,255,0.03);border-radius:10px;'
+            'border:1px solid rgba(255,255,255,0.06);margin-bottom:8px">'
+            '<div style="color:#818cf8;font-weight:700;margin-bottom:4px">VIX — Fear Index (VIXCLS)</div>'
+            '<b style="color:#22c55e">Below 15</b> = Calm markets, possible complacency<br>'
+            '<b style="color:#eab308">15-25</b> = Normal range<br>'
+            '<b style="color:#ef4444">25-35</b> = Elevated fear, increased hedging<br>'
+            '<b style="color:#ef4444">Above 35</b> = Panic — usually during market crashes'
+            '</div>'
+
+            '<div style="padding:10px 14px;background:rgba(255,255,255,0.03);border-radius:10px;'
+            'border:1px solid rgba(255,255,255,0.06)">'
+            '<div style="color:#818cf8;font-weight:700;margin-bottom:4px">High Yield Credit Spread (BAMLH0A0HYM2)</div>'
+            '<b style="color:#22c55e">Below 3%</b> = Very tight — markets confident (maybe too confident)<br>'
+            '<b style="color:#eab308">3-5%</b> = Normal — healthy risk premium<br>'
+            '<b style="color:#ef4444">5-8%</b> = Stress — investors demanding more compensation for risk<br>'
+            '<b style="color:#ef4444">Above 8%</b> = Crisis — credit markets seizing up'
+            '</div>'
+
+            '</div></div>'
+
+            # How to use the dashboard
+            '<div>'
+            '<div style="color:#c7d2fe;font-weight:700;font-size:1.05em;margin-bottom:6px">'
+            '💡 Quick Tips</div>'
+            '<div style="font-size:0.92em">'
+            '• <b>Streaks matter</b> — 4+ consecutive rises/falls in an indicator usually signal a real trend, not noise<br>'
+            '• <b>Watch for divergences</b> — if the stock market is rallying but macro data is weakening, one of them is wrong<br>'
+            '• <b>Z-scores are relative</b> — a +2σ reading in CPI is alarming; a +2σ reading in GDP is great. The signal card color tells you which<br>'
+            '• <b>Yield curve inversions lead by 12-18 months</b> — an inversion today doesn\'t mean recession tomorrow<br>'
+            '• <b>Click any indicator → Detail page</b> for the full chart, Z-score gauge, and significance analysis'
+            '</div>'
+            '</div>'
+
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
     # Quick legend
     st.markdown(
         '<div style="display:flex;gap:20px;margin-bottom:16px;font-size:0.85em;color:#9ca3af">'
