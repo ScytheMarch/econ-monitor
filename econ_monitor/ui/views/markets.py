@@ -140,10 +140,11 @@ def _rebuild_intraday(cached: dict | None):
 # ── Custom ticker lookup ──────────────────────────────────────────────────────
 
 def _render_custom_ticker(ticker: str, period: str, interval: str) -> None:
-    """Fetch and render a user-searched ticker with quote card + sparkline."""
+    """Fetch and render a user-searched ticker with full chart + stats."""
     import yfinance as yf
     import pandas as pd
-    from econ_monitor.ui.charts import intraday_sparkline
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
 
     tk = yf.Ticker(ticker)
 
@@ -166,6 +167,7 @@ def _render_custom_ticker(ticker: str, period: str, interval: str) -> None:
     week52_low = None
     avg_vol = None
     open_price = None
+    currency = "USD"
 
     # 1) fast_info (lightweight, works on Cloud)
     try:
@@ -178,6 +180,7 @@ def _render_custom_ticker(ticker: str, period: str, interval: str) -> None:
         open_price = getattr(fi, "open", None)
         week52_high = getattr(fi, "year_high", None)
         week52_low = getattr(fi, "year_low", None)
+        currency = getattr(fi, "currency", "USD") or "USD"
     except Exception:
         pass
 
@@ -197,7 +200,7 @@ def _render_custom_ticker(ticker: str, period: str, interval: str) -> None:
         pass
 
     # 3) info for rich metadata (may fail on Cloud — graceful)
-    info = {}
+    info: dict = {}
     try:
         info = tk.info or {}
         name = info.get("shortName") or info.get("longName") or ticker
@@ -241,13 +244,14 @@ def _render_custom_ticker(ticker: str, period: str, interval: str) -> None:
         change = price - prev_close
         pct = (change / prev_close) * 100
 
-    # Change string
+    is_up = (change or 0) >= 0
+    chg_color = "#22c55e" if is_up else "#ef4444"
+    arrow = "▲" if is_up else "▼"
+
     if pct is not None and change is not None:
-        sign = "+" if change >= 0 else ""
-        chg_color = "#22c55e" if change >= 0 else "#ef4444"
-        arrow = "▲" if change >= 0 else "▼"
+        sign = "+" if is_up else ""
         change_str = (
-            f'<span style="color:{chg_color};font-size:0.85em">'
+            f'<span style="color:{chg_color};font-size:0.95em;font-weight:600">'
             f'{arrow} {sign}{change:,.2f} ({sign}{pct:.2f}%)</span>'
         )
     else:
@@ -256,7 +260,7 @@ def _render_custom_ticker(ticker: str, period: str, interval: str) -> None:
     # Format helpers
     def _fmt_big(n):
         if n is None:
-            return "—"
+            return "N/A"
         if n >= 1_000_000_000_000:
             return f"${n / 1_000_000_000_000:.2f}T"
         if n >= 1_000_000_000:
@@ -267,7 +271,7 @@ def _render_custom_ticker(ticker: str, period: str, interval: str) -> None:
 
     def _fmt_vol(v):
         if v is None or v <= 0:
-            return "—"
+            return "N/A"
         if v >= 1_000_000_000:
             return f"{v / 1_000_000_000:.1f}B"
         if v >= 1_000_000:
@@ -276,133 +280,279 @@ def _render_custom_ticker(ticker: str, period: str, interval: str) -> None:
             return f"{v / 1_000:.0f}K"
         return f"{v:,}"
 
-    # 52-week position bar
+    def _na(v, fmt=""):
+        if v is None:
+            return '<span style="color:#475569">N/A</span>'
+        if fmt == "$":
+            return f"${v:,.2f}"
+        if fmt == "%":
+            return f"{v * 100:.2f}%"
+        if fmt == ".2f":
+            return f"{v:.2f}"
+        if fmt == ".1f":
+            return f"{v:.1f}"
+        return f"{v}"
+
+    # 52-week position
     pct_52w = None
     if week52_high and week52_low and week52_high > week52_low:
         pct_52w = (price - week52_low) / (week52_high - week52_low) * 100
 
-    # ── Render ────────────────────────────────────────────────────────────
+    # ── Section header ────────────────────────────────────────────────────
     st.markdown(
         f'<div style="color:#64748b;font-size:0.75em;text-transform:uppercase;'
         f'letter-spacing:1.5px;font-weight:600;margin:16px 0 8px 0">Ticker Lookup</div>',
         unsafe_allow_html=True,
     )
 
-    # Row 1: Quote card + Chart
-    c1, c2 = st.columns([1, 2])
+    # ── Row 1: Header bar (name, price, change) ──────────────────────────
+    meta_parts = [x for x in [sector, industry] if x]
+    meta_line = " · ".join(meta_parts) if meta_parts else ""
+    meta_span = (
+        f' <span style="color:#475569;font-size:0.7em;font-weight:400">'
+        f'— {meta_line}</span>' if meta_line else ""
+    )
 
-    with c1:
-        meta_line = " · ".join(
-            [x for x in [sector, industry] if x]
-        )
-        meta_html = (
-            f'<div style="color:#475569;font-size:0.68em;margin-top:4px">{meta_line}</div>'
-            if meta_line else ""
-        )
+    st.markdown(
+        f'<div style="background:linear-gradient(135deg,rgba(99,102,241,0.10),'
+        f'rgba(139,92,246,0.06));border:1px solid rgba(99,102,241,0.2);'
+        f'border-radius:14px;padding:20px 24px;margin-bottom:12px">'
+        f'<div style="display:flex;align-items:baseline;gap:16px;flex-wrap:wrap">'
+        f'<div style="color:#e0e7ff;font-size:1.1em;font-weight:700">{name}'
+        f' <span style="color:#64748b;font-weight:400">({ticker})</span>'
+        f'{meta_span}</div>'
+        f'</div>'
+        f'<div style="display:flex;align-items:baseline;gap:14px;margin-top:6px;'
+        f'flex-wrap:wrap">'
+        f'<span style="color:#f1f5f9;font-size:2.2em;font-weight:800;'
+        f'letter-spacing:-1px">${price:,.2f}</span>'
+        f'{change_str}'
+        f'<span style="color:#475569;font-size:0.75em">{currency}</span>'
+        f'</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
 
-        range_html = ""
-        if day_high is not None and day_low is not None:
-            range_html = (
-                f'<div style="color:#475569;font-size:0.68em;margin-top:2px">'
-                f'Day: {day_low:,.2f} – {day_high:,.2f}</div>'
+    # ── Row 2: Full chart with volume ────────────────────────────────────
+    try:
+        if hist.empty or "Close" not in hist.columns:
+            hist = tk.history(period=period, interval=interval)
+        if not hist.empty and "Close" in hist.columns:
+            closes = hist["Close"].dropna()
+            has_volume = "Volume" in hist.columns and hist["Volume"].sum() > 0
+
+            if has_volume:
+                fig = make_subplots(
+                    rows=2, cols=1, shared_xaxes=True,
+                    row_heights=[0.78, 0.22], vertical_spacing=0.02,
+                )
+            else:
+                fig = go.Figure()
+
+            line_color = "#22c55e" if closes.iloc[-1] >= closes.iloc[0] else "#ef4444"
+            fill_color = (
+                "rgba(34,197,94,0.08)" if line_color == "#22c55e"
+                else "rgba(239,68,68,0.08)"
             )
 
-        w52_html = ""
+            # Price line with area fill
+            hover_tpl = (
+                "<b>%{x|%b %d, %Y %I:%M %p}</b><br>"
+                "Price: $%{y:,.2f}<extra></extra>"
+            )
+            fig.add_trace(go.Scatter(
+                x=closes.index,
+                y=closes.values,
+                mode="lines",
+                line=dict(color=line_color, width=2),
+                fill="tozeroy",
+                fillcolor=fill_color,
+                showlegend=False,
+                hovertemplate=hover_tpl,
+            ), row=1, col=1) if has_volume else fig.add_trace(go.Scatter(
+                x=closes.index,
+                y=closes.values,
+                mode="lines",
+                line=dict(color=line_color, width=2),
+                fill="tozeroy",
+                fillcolor=fill_color,
+                showlegend=False,
+                hovertemplate=hover_tpl,
+            ))
+
+            # Volume bars
+            if has_volume:
+                vol_data = hist["Volume"].fillna(0)
+                vol_colors = [
+                    "rgba(99,102,241,0.4)" if hist["Close"].iloc[i] >= hist["Open"].iloc[i]
+                    else "rgba(239,68,68,0.3)"
+                    for i in range(len(hist))
+                ] if "Open" in hist.columns else ["rgba(99,102,241,0.3)"] * len(hist)
+
+                fig.add_trace(go.Bar(
+                    x=vol_data.index,
+                    y=vol_data.values,
+                    marker_color=vol_colors,
+                    showlegend=False,
+                    hovertemplate="Vol: %{y:,.0f}<extra></extra>",
+                ), row=2, col=1)
+
+                fig.update_yaxes(
+                    showgrid=False, showticklabels=False, row=2, col=1,
+                )
+
+            # Layout
+            y_min = float(closes.min())
+            y_max = float(closes.max())
+            y_pad = (y_max - y_min) * 0.08 if y_max > y_min else 1.0
+
+            fig.update_layout(
+                template="plotly_dark",
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                height=340 if has_volume else 280,
+                margin=dict(l=8, r=8, t=8, b=8),
+                hovermode="x unified",
+                hoverlabel=dict(
+                    bgcolor="#1e1b4b",
+                    font_size=12,
+                    font_color="#e2e8f0",
+                    bordercolor="#818cf8",
+                ),
+            )
+
+            fig.update_xaxes(
+                showgrid=True,
+                gridcolor="rgba(255,255,255,0.04)",
+                tickfont=dict(size=10, color="#64748b"),
+                linecolor="rgba(255,255,255,0.06)",
+                row=1 if has_volume else None, col=1 if has_volume else None,
+            )
+            fig.update_yaxes(
+                showgrid=True,
+                gridcolor="rgba(255,255,255,0.04)",
+                tickfont=dict(size=10, color="#64748b"),
+                tickprefix="$",
+                range=[y_min - y_pad, y_max + y_pad],
+                linecolor="rgba(255,255,255,0.06)",
+                row=1 if has_volume else None, col=1 if has_volume else None,
+            )
+
+            st.plotly_chart(
+                fig, use_container_width=True,
+                config={"displayModeBar": False},
+                key=f"chart_custom_{ticker}",
+            )
+        else:
+            st.caption("No chart data available for this ticker.")
+    except Exception:
+        st.caption("Unable to load chart data.")
+
+    # ── Row 3: Two-panel stats layout ────────────────────────────────────
+    def _stat_row(label: str, value: str, border: bool = True) -> str:
+        border_css = "border-bottom:1px solid rgba(255,255,255,0.04);" if border else ""
+        return (
+            f'<div style="display:flex;justify-content:space-between;'
+            f'padding:7px 0;{border_css}">'
+            f'<span style="color:#94a3b8;font-size:0.82em">{label}</span>'
+            f'<span style="color:#e2e8f0;font-size:0.82em;font-weight:600">'
+            f'{value}</span></div>'
+        )
+
+    # Color-coded values
+    def _beta_html(b):
+        if b is None:
+            return '<span style="color:#475569">N/A</span>'
+        c = "#22c55e" if 0.8 <= b <= 1.2 else "#eab308" if b < 0.8 else "#ef4444"
+        tip = "Low volatility" if b < 0.8 else "Market-like" if b <= 1.2 else "High volatility"
+        return f'<span style="color:{c}" title="{tip}">{b:.2f}</span>'
+
+    def _pe_html(p):
+        if p is None:
+            return '<span style="color:#475569">N/A</span>'
+        c = "#22c55e" if p < 20 else "#eab308" if p < 35 else "#ef4444"
+        tip = "Value" if p < 20 else "Fair" if p < 35 else "Expensive"
+        return f'<span style="color:{c}" title="{tip}">{p:.1f}</span>'
+
+    def _eps_html(e):
+        if e is None:
+            return '<span style="color:#475569">N/A</span>'
+        c = "#22c55e" if e > 0 else "#ef4444"
+        return f'<span style="color:{c}">${e:.2f}</span>'
+
+    left_col, right_col = st.columns(2)
+
+    with left_col:
+        # Trading data panel
+        rows = []
+        rows.append(_stat_row("Open", _na(open_price, "$")))
+        rows.append(_stat_row("Previous Close", _na(prev_close, "$")))
+        if day_high is not None and day_low is not None:
+            rows.append(_stat_row("Day Range",
+                f"${day_low:,.2f} – ${day_high:,.2f}"))
+        else:
+            rows.append(_stat_row("Day Range", _na(None)))
+        # 52-week range with visual bar
         if week52_low is not None and week52_high is not None:
             bar_pct = max(0, min(100, pct_52w or 0))
-            w52_html = (
-                f'<div style="margin-top:6px">'
-                f'<div style="color:#475569;font-size:0.68em;margin-bottom:2px">'
-                f'52w: ${week52_low:,.2f} – ${week52_high:,.2f}</div>'
-                f'<div style="background:rgba(255,255,255,0.06);border-radius:4px;height:4px;'
-                f'overflow:hidden;position:relative">'
-                f'<div style="background:linear-gradient(90deg,#6366f1,#a78bfa);height:100%;'
-                f'width:{bar_pct:.0f}%;border-radius:4px"></div>'
-                f'</div>'
-                f'</div>'
+            w52_val = (
+                f'<div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">'
+                f'<span>${week52_low:,.2f} – ${week52_high:,.2f}</span>'
+                f'<div style="width:120px;background:rgba(255,255,255,0.06);'
+                f'border-radius:3px;height:4px;overflow:hidden">'
+                f'<div style="background:linear-gradient(90deg,#6366f1,#a78bfa);'
+                f'height:100%;width:{bar_pct:.0f}%;border-radius:3px"></div>'
+                f'</div></div>'
             )
+            rows.append(_stat_row("52-Week Range", w52_val))
+        else:
+            rows.append(_stat_row("52-Week Range", _na(None)))
+        rows.append(_stat_row("Volume", _fmt_vol(vol)))
+        rows.append(_stat_row("Avg Volume", _fmt_vol(avg_vol), border=False))
 
         st.markdown(
-            f'<div style="background:linear-gradient(135deg,rgba(99,102,241,0.08),'
-            f'rgba(139,92,246,0.05));border:1px solid rgba(99,102,241,0.2);'
-            f'border-radius:12px;padding:18px 20px">'
-            f'<div style="color:#c7d2fe;font-size:0.82em;font-weight:700;'
-            f'margin-bottom:6px">{name} <span style="color:#64748b;font-weight:400">'
-            f'({ticker})</span></div>'
-            f'<div style="color:#f1f5f9;font-size:1.8em;font-weight:700;'
-            f'letter-spacing:-0.5px">${price:,.2f}</div>'
-            f'{change_str}'
-            f'{range_html}'
-            f'{w52_html}'
-            f'{meta_html}'
-            f'</div>',
+            f'<div style="background:linear-gradient(135deg,rgba(255,255,255,0.03),'
+            f'rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.06);'
+            f'border-radius:12px;padding:14px 18px">'
+            f'<div style="color:#818cf8;font-size:0.72em;text-transform:uppercase;'
+            f'letter-spacing:1px;font-weight:700;margin-bottom:8px">📊 Trading Data</div>'
+            + "".join(rows)
+            + '</div>',
             unsafe_allow_html=True,
         )
 
-    with c2:
-        # Chart — pass Close column WITHOUT renaming (sparkline expects "Close")
-        try:
-            if hist.empty or "Close" not in hist.columns:
-                hist = tk.history(period=period, interval=interval)
-            if not hist.empty and "Close" in hist.columns:
-                fig = intraday_sparkline(hist[["Close"]], height=180)
-                st.plotly_chart(
-                    fig, use_container_width=True,
-                    config={"displayModeBar": False},
-                    key=f"spark_custom_{ticker}",
-                )
-            else:
-                st.caption("No chart data available for this ticker.")
-        except Exception:
-            st.caption("Unable to load chart data.")
+    with right_col:
+        # Fundamentals panel
+        rows2 = []
+        rows2.append(_stat_row("Market Cap", _fmt_big(mkt_cap)))
+        rows2.append(_stat_row("Beta", _beta_html(beta)))
+        rows2.append(_stat_row("P/E (TTM)", _pe_html(pe_ratio)))
+        rows2.append(_stat_row("Forward P/E", _pe_html(fwd_pe)))
+        rows2.append(_stat_row("EPS (TTM)", _eps_html(eps)))
+        rows2.append(_stat_row("Dividend Yield",
+            _na(div_yield, "%") if div_yield and div_yield > 0
+            else '<span style="color:#475569">N/A</span>', border=False))
 
-    # Row 2: Stats grid
-    def _stat(label, value):
-        return (
-            f'<div style="text-align:center;padding:8px 4px">'
-            f'<div style="color:#64748b;font-size:0.68em;text-transform:uppercase;'
-            f'letter-spacing:0.5px;font-weight:600">{label}</div>'
-            f'<div style="color:#e2e8f0;font-size:0.95em;font-weight:600;'
-            f'margin-top:2px">{value}</div>'
-            f'</div>'
-        )
-
-    stats = []
-    if open_price is not None:
-        stats.append(_stat("Open", f"${open_price:,.2f}"))
-    if prev_close is not None:
-        stats.append(_stat("Prev Close", f"${prev_close:,.2f}"))
-    stats.append(_stat("Volume", _fmt_vol(vol)))
-    stats.append(_stat("Avg Volume", _fmt_vol(avg_vol)))
-    stats.append(_stat("Mkt Cap", _fmt_big(mkt_cap)))
-    if beta is not None:
-        beta_color = "#22c55e" if 0.8 <= beta <= 1.2 else "#eab308" if beta < 0.8 else "#ef4444"
-        stats.append(_stat("Beta",
-            f'<span style="color:{beta_color}">{beta:.2f}</span>'))
-    if pe_ratio is not None:
-        pe_color = "#22c55e" if pe_ratio < 20 else "#eab308" if pe_ratio < 35 else "#ef4444"
-        stats.append(_stat("P/E",
-            f'<span style="color:{pe_color}">{pe_ratio:.1f}</span>'))
-    if fwd_pe is not None:
-        stats.append(_stat("Fwd P/E", f"{fwd_pe:.1f}"))
-    if eps is not None:
-        eps_color = "#22c55e" if eps > 0 else "#ef4444"
-        stats.append(_stat("EPS",
-            f'<span style="color:{eps_color}">${eps:.2f}</span>'))
-    if div_yield is not None and div_yield > 0:
-        stats.append(_stat("Div Yield", f"{div_yield * 100:.2f}%"))
-
-    if stats:
-        cols_per_row = min(len(stats), 6)
-        grid_html = (
-            f'<div style="display:grid;grid-template-columns:repeat({cols_per_row},1fr);'
-            f'gap:4px;background:linear-gradient(135deg,rgba(255,255,255,0.03),'
+        st.markdown(
+            f'<div style="background:linear-gradient(135deg,rgba(255,255,255,0.03),'
             f'rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.06);'
-            f'border-radius:12px;padding:10px 12px;margin-top:8px">'
-            + "".join(stats)
-            + '</div>'
+            f'border-radius:12px;padding:14px 18px">'
+            f'<div style="color:#818cf8;font-size:0.72em;text-transform:uppercase;'
+            f'letter-spacing:1px;font-weight:700;margin-bottom:8px">📋 Fundamentals</div>'
+            + "".join(rows2)
+            + '</div>',
+            unsafe_allow_html=True,
         )
-        st.markdown(grid_html, unsafe_allow_html=True)
+
+    # Note about data availability on Cloud
+    if not info:
+        st.markdown(
+            '<div style="color:#475569;font-size:0.7em;text-align:center;'
+            'margin-top:6px;font-style:italic">'
+            'ℹ️ Some fundamental data (beta, P/E, EPS) may be unavailable on '
+            'Streamlit Cloud due to Yahoo Finance rate limits.</div>',
+            unsafe_allow_html=True,
+        )
 
 
 # ── Section renderer ─────────────────────────────────────────────────────────
